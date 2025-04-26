@@ -8,7 +8,8 @@ load_dotenv()
 rateLimit = os.getenv('RATE_LIMIT')
 
 rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
-
+from utils.decorators import auto_refresh_token
+@auto_refresh_token
 def get_code(access_token, text_id, date_vigueur=None):
     """
     Récupère un Code juridique complet (ex : Code civil) depuis son textId.

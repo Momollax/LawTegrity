@@ -8,7 +8,8 @@ load_dotenv()
 rateLimit = os.getenv('RATE_LIMIT')
 
 rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
-
+from utils.decorators import auto_refresh_token
+@auto_refresh_token
 def get_article(access_token, article_id):
     """
     Récupère un article précis par son ID technique.

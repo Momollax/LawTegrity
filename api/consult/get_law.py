@@ -8,7 +8,8 @@ rateLimit = os.getenv('RATE_LIMIT')
 
 rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
 load_dotenv()
-
+from utils.decorators import auto_refresh_token
+@auto_refresh_token
 def get_law_content(access_token, text_id):
     headers = {
         'Authorization': f'Bearer {access_token}',

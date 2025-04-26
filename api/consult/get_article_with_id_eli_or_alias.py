@@ -6,7 +6,8 @@ load_dotenv()
 rateLimit = os.getenv('RATE_LIMIT')
 
 rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
-
+from utils.decorators import auto_refresh_token
+@auto_refresh_token
 def get_article_with_id_eli_or_alias(headers, article_id):
     """
     Récupère le contenu d'un article à partir de son identifiant ELI ou alias.
