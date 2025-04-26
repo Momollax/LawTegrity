@@ -10,8 +10,9 @@ load_dotenv()
 
 PAGE_SIZE = int(os.getenv('PAGE_SIZE', 100))
 THRESHOLD = int(os.getenv('THRESHOLD_LIMIT', 1000))
+rateLimit = os.getenv('RATE_LIMIT')  # Limite par défaut de 5 requêtes par seconde
 
-rate_limiter = RateLimiter(max_requests_per_second=15)
+rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
 
 def post_loda(access_token, start_date, end_date, page):
     """

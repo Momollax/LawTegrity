@@ -1,8 +1,12 @@
 import os
 import requests
 from dotenv import load_dotenv
-
+from utils.rate_limiter import RateLimiter
 load_dotenv()
+rateLimit = os.getenv('RATE_LIMIT')
+
+rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
+
 
 def get_access_token():
     """
@@ -20,6 +24,7 @@ def get_access_token():
     token_url = os.getenv('TOKEN_URL')
 
     response = requests.post(token_url, data=data, headers=headers)
+    rate_limiter.wait()
     response.raise_for_status()
 
     access_token = response.json().get('access_token')

@@ -1,4 +1,11 @@
 import requests
+from utils.rate_limiter import RateLimiter
+import os
+from dotenv import load_dotenv
+load_dotenv()
+rateLimit = os.getenv('RATE_LIMIT')
+
+rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
 
 def get_article_with_id_eli_or_alias(headers, article_id):
     """
@@ -17,7 +24,8 @@ def get_article_with_id_eli_or_alias(headers, article_id):
     }
 
     response = requests.post(url, headers=headers, json=payload)
-    print("headers:", headers, "json:", payload, "response:", response.text)
+    print("json:", payload, "response:", response.text)
+    rate_limiter.wait()
     if response.status_code == 200:
         return response.json()
     else:

@@ -2,9 +2,13 @@
 import requests
 from utils.logger import logger
 import time
+from utils.rate_limiter import RateLimiter
+import os
+from dotenv import load_dotenv
+load_dotenv()
+rateLimit = os.getenv('RATE_LIMIT')
 
-import requests
-from utils.logger import logger
+rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
 
 def get_table_matieres(access_token, text_id, date, nature="LODA"):
     url = "https://sandbox-api.piste.gouv.fr/dila/legifrance/lf-engine-app/consult/legi/tableMatieres"
@@ -28,8 +32,7 @@ def get_table_matieres(access_token, text_id, date, nature="LODA"):
         try:
             response = requests.post(url, headers=headers, json=data)
             print("response de consult/legi/tableMatieres:",headers, data, response.text)
-            exit(0)
-            time.sleep(inter_request_delay)  # Toujours dormir un peu après CHAQUE requête
+            rate_limiter.wait() 
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 400:

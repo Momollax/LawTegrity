@@ -2,3 +2,5 @@
 ./logs/*
 ./laws/*
 ./laws_json/*
+.gitignore
+.env

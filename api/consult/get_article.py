@@ -3,9 +3,11 @@ import requests
 from dotenv import load_dotenv
 from utils.logger import logger
 from utils.rate_limiter import RateLimiter
-
+from dotenv import load_dotenv
 load_dotenv()
-rate_limiter = RateLimiter(max_requests_per_second=15)
+rateLimit = os.getenv('RATE_LIMIT')
+
+rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
 
 def get_article(access_token, article_id):
     """
