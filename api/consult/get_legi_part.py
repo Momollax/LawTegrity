@@ -30,7 +30,7 @@ def get_legi_part(access_token, text_id, date=None):
         "textId": text_id
     }
     if date:
-        payload["date"] = date
+        payload["date"] = date[:10]
 
     for attempt in range(5):  # 5 tentatives max
         try:
@@ -39,7 +39,7 @@ def get_legi_part(access_token, text_id, date=None):
 
             if response.status_code == 401:
                 logger.warning(f"🔄 Token expiré. Renouvellement en cours... (tentative {attempt+1})")
-                access_token = get_token()
+                access_token = get_access_token()
                 headers["Authorization"] = f"Bearer {access_token}"
                 continue
 

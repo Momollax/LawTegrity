@@ -14,41 +14,43 @@ rateLimit = os.getenv('RATE_LIMIT', 5)
 rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
 
 def auto_refresh_token(func):
-    """
-    Décorateur pour rafraîchir automatiquement le token si 401 Unauthorized.
-    """
+    def wrapper(access_token, *args, **kwargs):
+        max_retries = 2  # Une fois re-tenté après renouvellement
 
-    def wrapper(*args, **kwargs):
-        access_token = kwargs.get('access_token')
-        max_attempts = 5
-
-        for attempt in range(max_attempts):
-            rate_limiter.wait()
-
+        for attempt in range(max_retries):
             try:
-                response = func(*args, **kwargs)
+                result = func(access_token, *args, **kwargs)
+                return result
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 401:
+                    logger.warning(f"🔄 Token expiré. Renouvellement en cours... (tentative {attempt + 1})")
+                    
+                    # Re-demander un nouveau token
+                    new_token = get_access_token()
+                    access_token = new_token
+                    
+                    # PING test
+                    if not test_token(new_token):
+                        logger.error("❌ Nouveau token invalide après rafraîchissement.")
+                        raise Exception("Erreur lors du renouvellement du token.")
 
-                if hasattr(response, 'status_code'):
-                    if response.status_code == 401:
-                        logger.warning(f"🔄 Token expiré. Renouvellement en cours... (tentative {attempt+1}/{max_attempts})")
-                        access_token = get_access_token()
-                        kwargs['access_token'] = access_token
-                        continue
-
-                    if response.status_code == 429:
-                        logger.warning(f"⚠️ 429 Too Many Requests. Pause 10s... (tentative {attempt+1}/{max_attempts})")
-                        time.sleep(10)
-                        continue
-
-                    response.raise_for_status()
-
-                return response  # Retourne la réponse directe (ex: .json() ou response)
-
-            except requests.RequestException as e:
-                logger.error(f"❌ Exception API : {e}")
-                time.sleep(5)
-
-        logger.error(f"⛔ Echec après {max_attempts} tentatives pour {func.__name__}")
-        return None
-
+                    # Sinon, réessayer une dernière fois avec nouveau token
+                else:
+                    raise  # autre erreur HTTP
+        raise Exception("🔴 Token refresh failed après plusieurs tentatives.")
     return wrapper
+
+def test_token(access_token):
+    """
+    Vérifie si le token est valide avec un ping Legifrance.
+    """
+    url = os.getenv('API_BASE_URL') + '/consult/ping'
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    try:
+        response = requests.get(url, headers=headers)
+        return response.status_code == 200
+    except Exception as e:
+        logger.error(f"Erreur lors du test ping: {e}")
+        return False

@@ -13,6 +13,7 @@ from api.consult.get_article import get_article
 from api.consult.get_tablematieres import get_table_matieres
 from api.consult.get_legi_part import get_legi_part
 from api.consult.get_article_with_id_eli_or_alias import get_article_with_id_eli_or_alias
+from api.consult.get_article_by_cid import get_article_by_cid
 
 from storage.save_text import save_law_text
 from storage.save_json import save_law_as_json
@@ -20,14 +21,16 @@ from storage.save_json import save_law_as_json
 from utils.logger import logger
 from utils.rate_limiter import RateLimiter
 from utils.extract_plain_text_from_generic import extract_plain_text_generic
-from api.consult.get_article_by_cid import get_article_by_cid
+
+from tqdm import tqdm
+
 load_dotenv()
 
+# Configuration
 rateLimit = os.getenv('RATE_LIMIT')
 start_date = os.getenv('START_DATE')
 rate_limiter = RateLimiter(max_requests_per_second=float(rateLimit))
 
-# Constantes
 today = datetime.now().date()
 START_YEAR = int(start_date)
 END_YEAR = today.year
@@ -40,21 +43,13 @@ def clean_filename(title, max_length=80):
         title = title.replace(char, '')
     title = title.replace(' ', '_')
     cleaned = title.strip()
-
-    # Retirer aussi les apostrophes et caractères spéciaux qui posent problème
     cleaned = cleaned.replace("’", "").replace("'", "")
+    return cleaned[:max_length] if len(cleaned) > max_length else cleaned
 
-    # Raccourcir si trop long
-    if len(cleaned) > max_length:
-        cleaned = cleaned[:max_length]
-    return cleaned
-
-# Correction: on passe access_token dans la fonction
 def download_articles_from_law(articles, year_folder, month_folder, law_title):
     if not articles:
         return
 
-    # Créer un sous-dossier par loi
     folder_path = os.path.join(SAVE_TXT_FOLDER, year_folder, month_folder, clean_filename(law_title))
     os.makedirs(folder_path, exist_ok=True)
 
@@ -64,9 +59,7 @@ def download_articles_from_law(articles, year_folder, month_folder, law_title):
 
         if article_id and texte_html:
             try:
-                logger.info(f"📜 Sauvegarde de l'article {article_id} lié à '{law_title}'")
                 save_law_text(folder_path, article_id, texte_html)
-
             except Exception as e:
                 logger.error(f"❌ Erreur en sauvegardant l'article {article_id}: {str(e)}")
                 time.sleep(2)
@@ -88,34 +81,26 @@ def download_law(access_token, law_data):
 
     save_path_txt = os.path.join(SAVE_TXT_FOLDER, year_folder, month_folder)
     save_path_json = os.path.join(SAVE_JSON_FOLDER, year_folder, month_folder)
-
     os.makedirs(save_path_txt, exist_ok=True)
     os.makedirs(save_path_json, exist_ok=True)
 
     filename = clean_filename(f"{nature}_{title}")
 
     try:
+        # 🔥 Utilisation de tqdm.write() au lieu de logger
+        tqdm.write(f"📑 Téléchargement brut (nature={nature}) pour {title}")
+
         if nature == 'LODA':
-            logger.info(f"\U0001F4D1 Téléchargement LOI/ORDO/DÉCRET (LODA) : {title}")
             response = get_law_decree(access_token, text_id)
-
         elif nature == 'CODE':
-            logger.info(f"\U0001F4D1 Téléchargement CODE : {title}")
             response = get_code(access_token, text_id)
-
         elif nature == 'CIRCULAIRE':
-            logger.info(f"\U0001F4D1 Téléchargement CIRCULAIRE : {title}")
             response = get_circulaire(access_token, text_id)
-
         else:
-            logger.info(f"\U0001F4D1 Téléchargement brut (nature={nature}) pour {title}")
             response = get_legi_part(access_token, text_id, publication_date)
-            if response:
-                text = extract_plain_text_generic(response)
-                save_law_text(save_path_txt, filename, text)
-                save_law_as_json(save_path_json, filename, response)
-            else:
+            if not response:
                 logger.error(f"Impossible de récupérer {title} même avec legi_part.")
+                return
 
         if response:
             text = extract_plain_text_generic(response)
@@ -125,9 +110,6 @@ def download_law(access_token, law_data):
             articles = response.get('articles', [])
             if articles:
                 download_articles_from_law(articles, year_folder, month_folder, title)
-
-        else:
-            logger.warning(f"Pas de réponse pour {title} ({text_id})")
 
     except Exception as e:
         logger.error(f"❌ Erreur téléchargement {title} ({text_id}): {str(e)}")
@@ -148,10 +130,11 @@ def main():
 
     for year in range(args.start_year, args.end_year + 1):
         logger.info(f"=== Récupération des lois pour {year} ===")
+        laws = list(fetch_laws(access_token, datetime(year, 1, 1).date(), datetime(year, 12, 31).date()))
 
-        laws = fetch_laws(access_token, datetime(year, 1, 1).date(), datetime(year, 12, 31).date())
 
-        for law in laws:
+        # 🧹 Ajout barre de progression propre
+        for law in tqdm(laws, desc=f"Traitement des lois {year}", unit="loi"):
             download_law(access_token, law)
             time.sleep(0.1)
 

@@ -1,6 +1,6 @@
 .git
-./logs/*
-./laws/*
-./laws_json/*
+logs/*
+laws/*
+laws_json/*
 .gitignore
 .env
